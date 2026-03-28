@@ -1,0 +1,18 @@
+# Copilot Studio broker — from repo root:
+#   cp broker/.env.example broker/.env   # then edit COPILOT_DIRECTLINE_TOKEN_URL
+#   docker compose up --build
+#
+# Host port defaults to 8080; override: HOST_PORT=9090 docker compose up
+
+services:
+  broker:
+    build:
+      context: ./broker
+      dockerfile: Dockerfile
+    env_file:
+      - ./broker/.env
+    environment:
+      PORT: "8080"
+    ports:
+      - "${HOST_PORT:-8080}:8080"
+    restart: unless-stopped

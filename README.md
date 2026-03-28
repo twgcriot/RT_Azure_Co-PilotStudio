@@ -12,9 +12,11 @@ The HTTP sequence matches the included **Postman collection** (`Co-Pilot Studio 
 
 ## Prerequisites
 
-- **Node.js 18 or newer** (uses the built-in `fetch` API).
 - A **Copilot Studio** bot with the **Direct Line token** endpoint available in your Power Platform environment (the same URL you use in Postman “Get Direct Line Token”).
-- For background start/stop scripts: **bash** (macOS/Linux, or Git Bash / WSL on Windows).
+- Either:
+  - **Docker** + **Docker Compose** v2 (recommended to run on other machines), or
+  - **Node.js 18 or newer** (uses the built-in `fetch` API) if you run from source.
+- For optional background start/stop scripts on the host: **bash** (macOS/Linux, or Git Bash / WSL on Windows).
 
 ---
 
@@ -26,6 +28,8 @@ The HTTP sequence matches the included **Postman collection** (`Co-Pilot Studio 
 | `broker/public/` | Test chat UI (`index.html`, `app.js`, `styles.css`) |
 | `broker/lib/` | Direct Line logic, sessions, OpenAI-compatible routes |
 | `broker/scripts/` | Optional background `broker:start` / `broker:stop` helpers |
+| [`broker/Dockerfile`](broker/Dockerfile) | Production container image (Node 20) |
+| [`docker-compose.yml`](docker-compose.yml) | Compose stack from repo root |
 | `Co-Pilot Studio Flow.postman_collection.json` | Reference collection for the same flow in Postman |
 
 Secrets and local artifacts are **not** committed (see `.gitignore`): `broker/.env`, `node_modules`, `.broker.pid`, `.broker.log`.
@@ -62,11 +66,71 @@ cp .env.example .env
 | `INITIAL_DELAY_MS` | No | `0` | Extra delay (ms) before the first poll after posting an activity. |
 | `OPENAI_COMPAT_MODEL_ID` | No | `copilot-studio` | Model id returned by `GET /v1/models` and used when clients omit `model`. |
 
-The broker loads `.env` from the **`broker/`** directory (via `dotenv` when you run `server.js` from that folder).
+The broker loads `.env` from the **`broker/`** directory (via `dotenv` when you run `server.js` from that folder). When you use **Docker Compose**, variables are injected from the same `broker/.env` file on the host (they are **not** baked into the image).
 
 ---
 
-## Running the broker
+## Docker (recommended for other machines)
+
+You need **[Docker](https://docs.docker.com/get-docker/)** and **[Compose v2](https://docs.docker.com/compose/)** on the host. The image runs **Node 20** and listens on port **8080 inside the container** (Compose maps that to the host).
+
+### 1. Create `broker/.env` on the host
+
+From the **repository root**:
+
+```bash
+cp broker/.env.example broker/.env
+```
+
+Edit `broker/.env` and set at least **`COPILOT_DIRECTLINE_TOKEN_URL`**. For Compose, **`PORT`** inside the container is fixed to **8080** by [`docker-compose.yml`](docker-compose.yml); to expose a different **host** port, set **`HOST_PORT`** (defaults to `8080`).
+
+### 2. Build and run with Compose
+
+From the **repository root**:
+
+```bash
+docker compose up --build
+```
+
+Run detached:
+
+```bash
+docker compose up --build -d
+```
+
+Stop:
+
+```bash
+docker compose down
+```
+
+Open **http://localhost:8080/** (or `http://localhost:<HOST_PORT>/` if you set `HOST_PORT`).
+
+### 3. Build and run with Docker only
+
+From the **repository root**:
+
+```bash
+docker build -t copilot-studio-broker ./broker
+docker run --rm --env-file broker/.env -e PORT=8080 -p 8080:8080 copilot-studio-broker
+```
+
+Adjust **`-p <host>:8080`** if you want another host port. Do **not** commit real secrets; `--env-file` reads your local `broker/.env`.
+
+### 4. Publishing the image (optional)
+
+Tag and push to your registry (example: GitHub Container Registry):
+
+```bash
+docker tag copilot-studio-broker ghcr.io/<org-or-user>/copilot-studio-broker:1.0.0
+docker push ghcr.io/<org-or-user>/copilot-studio-broker:1.0.0
+```
+
+On another machine, **`docker run`** or Compose **`image:`** instead of **`build:`**, and supply **`--env-file`** or your platform’s secret mechanism for **`COPILOT_DIRECTLINE_TOKEN_URL`**.
+
+---
+
+## Running the broker (from source)
 
 All commands below assume your current directory is **`broker/`**.
 
@@ -106,8 +170,8 @@ If there is no pid file, `broker:stop` attempts to stop whatever is **listening 
 
 ## Using the test web UI
 
-1. Start the broker (`npm start` or `npm run broker:start`).
-2. Open **http://localhost:8080/** in a browser.
+1. Start the broker (`docker compose up` from repo root, or `npm start` / `npm run broker:start` from `broker/`).
+2. Open **http://localhost:8080/** in a browser (use your **HOST_PORT** if you changed it in Compose).
 3. Send messages; the UI calls **`POST /api/chat`** and shows user vs bot lines.
 4. **Clear chat** clears the transcript and drops the browser session id (next send starts a new Copilot conversation on the server).
 
@@ -203,7 +267,7 @@ Import **`Co-Pilot Studio Flow.postman_collection.json`** into Postman to exerci
 
 ## Security and operations notes
 
-- **Do not commit `broker/.env`**; it can encode environment-specific URLs. Use **`broker/.env.example`** as a template only.
+- **Do not commit `broker/.env`**; it can encode environment-specific URLs. Use **`broker/.env.example`** as a template only. Do **not** copy real `.env` content into **Docker image layers**; pass configuration at **`docker run`** / Compose **`env_file`** time only.
 - Session and token data are kept **in memory**; restarting the broker clears sessions. Clients must start a new conversation or use new session ids.
 - The broker is aimed at **local or trusted network** use. Exposing it on the internet without authentication would let anyone send messages through your Copilot bot configuration.
 - **HTTPS** and **auth** are not built in; put the broker behind a reverse proxy or API gateway if you need that in production.
@@ -218,7 +282,8 @@ Import **`Co-Pilot Studio Flow.postman_collection.json`** into Postman to exerci
 | `503` on chat routes | Same as above. |
 | `404` on `/api/chat` for `sessionId` | Session expired after restart; omit `sessionId` or clear the UI / use a new `user` in OpenAI calls. |
 | No bot text, `timedOut: true` | Increase `POLL_TIMEOUT_MS` or check bot latency; confirm the bot responds in Postman for the same bot. |
-| Port already in use | Change `PORT` in `.env` or run `npm run broker:stop`, then start again. |
+| Port already in use | Change `PORT` in `broker/.env` (source run), set **`HOST_PORT`** for Compose, or change **`-p`** with plain Docker; or run `npm run broker:stop` on the host. |
+| `docker compose` fails on `env_file` | Create **`broker/.env`** first (`cp broker/.env.example broker/.env` and edit). |
 | OpenAI client cannot connect | Base URL should include **`/v1`** if the SDK expects the OpenAI path prefix (e.g. `http://localhost:8080/v1`). |
 
 ---
