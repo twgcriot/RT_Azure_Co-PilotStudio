@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Copilot Studio — test chat</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="header">
+        <h1>Copilot Studio</h1>
+        <p class="tagline">Send test messages through the local broker (port 8080)</p>
+      </header>
+
+      <main class="main">
+        <div id="banner" class="banner banner--hidden" role="status"></div>
+        <div id="transcript" class="transcript" aria-live="polite"></div>
+        <form id="composer" class="composer" autocomplete="off">
+          <label class="sr-only" for="message">Message</label>
+          <textarea
+            id="message"
+            class="composer__input"
+            rows="2"
+            placeholder="Type a message…"
+            required
+          ></textarea>
+          <div class="composer__actions">
+            <button type="submit" class="btn btn--primary" id="sendBtn">Send</button>
+            <button type="button" class="btn btn--ghost" id="clearBtn">Clear chat</button>
+          </div>
+        </form>
+      </main>
+
+      <footer class="footer">
+        <span id="sessionLabel" class="session-label"></span>
+      </footer>
+    </div>
+    <script src="app.js" type="module"></script>
+  </body>
+</html>

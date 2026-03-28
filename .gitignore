@@ -1,0 +1,8 @@
+.DS_Store
+*.log
+
+# Broker
+broker/node_modules/
+broker/.env
+broker/.broker.pid
+broker/.broker.log
