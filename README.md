@@ -1,0 +1,228 @@
+# RT Azure Copilot Studio — Direct Line broker
+
+This repository contains a small **Node.js broker** that talks to a **Microsoft Copilot Studio** (Power Virtual Agents) bot through **Direct Line v3**, plus:
+
+- a browser **test UI** (served by the same server),
+- a simple **`/api/chat`** JSON API used by that UI, and
+- an **OpenAI-compatible** **`/v1/chat/completions`** surface for tools and clients that expect the OpenAI HTTP shape.
+
+The HTTP sequence matches the included **Postman collection** (`Co-Pilot Studio Flow.postman_collection.json`): obtain a Direct Line token from Power Platform → start a Direct Line conversation → post a user activity → poll for bot replies.
+
+---
+
+## Prerequisites
+
+- **Node.js 18 or newer** (uses the built-in `fetch` API).
+- A **Copilot Studio** bot with the **Direct Line token** endpoint available in your Power Platform environment (the same URL you use in Postman “Get Direct Line Token”).
+- For background start/stop scripts: **bash** (macOS/Linux, or Git Bash / WSL on Windows).
+
+---
+
+## Repository layout
+
+| Path | Description |
+|------|-------------|
+| `broker/` | Express app: Direct Line client, APIs, static web UI |
+| `broker/public/` | Test chat UI (`index.html`, `app.js`, `styles.css`) |
+| `broker/lib/` | Direct Line logic, sessions, OpenAI-compatible routes |
+| `broker/scripts/` | Optional background `broker:start` / `broker:stop` helpers |
+| `Co-Pilot Studio Flow.postman_collection.json` | Reference collection for the same flow in Postman |
+
+Secrets and local artifacts are **not** committed (see `.gitignore`): `broker/.env`, `node_modules`, `.broker.pid`, `.broker.log`.
+
+---
+
+## Configuration
+
+### 1. Install dependencies
+
+```bash
+cd broker
+npm install
+```
+
+### 2. Create `broker/.env`
+
+Copy the example file and edit values as needed:
+
+```bash
+cp .env.example .env
+```
+
+### 3. Environment variables
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `COPILOT_DIRECTLINE_TOKEN_URL` | **Yes** | — | Full **GET** URL to your bot’s Direct Line token endpoint in Power Platform, including `api-version` (same as the “Get Direct Line Token” request in the Postman collection). Example path shape: `.../powervirtualagents/botsbyschema/<bot>/directline/token?api-version=2022-03-01-preview`. |
+| `PORT` | No | `8080` | HTTP port for the broker. |
+| `DIRECT_LINE_ROOT` | No | `https://directline.botframework.com/v3/directline` | Direct Line API root (rarely need to change). |
+| `USER_FROM_ID` | No | `user1` | `from.id` on outbound user activities to Direct Line. |
+| `POLL_INTERVAL_MS` | No | `1000` | Delay between polls when waiting for a bot message. |
+| `POLL_TIMEOUT_MS` | No | `45000` | Maximum time to wait for a bot reply after you send a user message. |
+| `INITIAL_DELAY_MS` | No | `0` | Extra delay (ms) before the first poll after posting an activity. |
+| `OPENAI_COMPAT_MODEL_ID` | No | `copilot-studio` | Model id returned by `GET /v1/models` and used when clients omit `model`. |
+
+The broker loads `.env` from the **`broker/`** directory (via `dotenv` when you run `server.js` from that folder).
+
+---
+
+## Running the broker
+
+All commands below assume your current directory is **`broker/`**.
+
+### Foreground (attached terminal)
+
+```bash
+npm start
+```
+
+The process listens on `http://localhost:<PORT>` (default **8080**). Stop with **Ctrl+C**.
+
+### Development (auto-restart on file changes)
+
+```bash
+npm run dev
+```
+
+Uses `node --watch server.js`.
+
+### Background (macOS/Linux bash)
+
+Writes the process id to **`broker/.broker.pid`** and append-only logs to **`broker/.broker.log`**:
+
+```bash
+npm run broker:start
+```
+
+Stop:
+
+```bash
+npm run broker:stop
+```
+
+If there is no pid file, `broker:stop` attempts to stop whatever is **listening on `PORT`** from `.env` (or **8080**). Ensure that port is not shared with another important service.
+
+---
+
+## Using the test web UI
+
+1. Start the broker (`npm start` or `npm run broker:start`).
+2. Open **http://localhost:8080/** in a browser.
+3. Send messages; the UI calls **`POST /api/chat`** and shows user vs bot lines.
+4. **Clear chat** clears the transcript and drops the browser session id (next send starts a new Copilot conversation on the server).
+
+---
+
+## REST APIs
+
+Base URL: `http://localhost:<PORT>` (replace host/port if you deploy elsewhere).
+
+### Health
+
+```http
+GET /api/health
+```
+
+Response example:
+
+```json
+{ "ok": true, "configured": true }
+```
+
+`configured` is `false` when `COPILOT_DIRECTLINE_TOKEN_URL` is missing.
+
+### Chat (used by the web UI)
+
+```http
+POST /api/chat
+Content-Type: application/json
+
+{
+  "text": "Hello",
+  "sessionId": "<optional UUID from prior response>"
+}
+```
+
+Response (success):
+
+```json
+{
+  "sessionId": "<uuid>",
+  "userText": "Hello",
+  "replies": [
+    { "role": "bot", "text": "...", "timestamp": "...", "id": "..." }
+  ],
+  "timedOut": false
+}
+```
+
+- Omit **`sessionId`** on the first message of a conversation; the response returns a new **`sessionId`** for follow-ups.
+- If you send an unknown **`sessionId`**, the server returns **404** (e.g. after a broker restart with in-memory sessions cleared).
+
+### OpenAI-compatible surface
+
+Use a client base URL of **`http://localhost:<PORT>/v1`** (many SDKs append `/chat/completions`).
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/v1/models` | Lists one model (id = `OPENAI_COMPAT_MODEL_ID` or `copilot-studio`). |
+| `GET` | `/v1/models/:modelId` | Returns metadata for that model, or 404. |
+| `POST` | `/v1/chat/completions` | Non-streaming chat completion. |
+
+**Chat completions** body (typical):
+
+```json
+{
+  "model": "copilot-studio",
+  "messages": [
+    { "role": "user", "content": "Hello" }
+  ],
+  "user": "my-stable-session-id"
+}
+```
+
+- The broker sends the **last `user` message** in `messages` to Copilot (earlier entries are not replayed to Direct Line).
+- **`user`**: optional. If set, it acts as a **stable session key** for multi-turn (same idea as `/api/chat`’s `sessionId`). If omitted, the broker creates a session and returns **`X-Broker-Session-Id`** on the response; you can send that value as **`user`** on the next request.
+- **`stream: true`** is **not** supported (returns **400**).
+
+Example `curl`:
+
+```bash
+curl -s http://localhost:8080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{"model":"copilot-studio","messages":[{"role":"user","content":"Hello"}]}'
+```
+
+---
+
+## Postman collection
+
+Import **`Co-Pilot Studio Flow.postman_collection.json`** into Postman to exercise the raw Power Platform + Direct Line calls. The **same token URL** should be placed in **`COPILOT_DIRECTLINE_TOKEN_URL`** in `broker/.env` for the broker to work against the same bot.
+
+---
+
+## Security and operations notes
+
+- **Do not commit `broker/.env`**; it can encode environment-specific URLs. Use **`broker/.env.example`** as a template only.
+- Session and token data are kept **in memory**; restarting the broker clears sessions. Clients must start a new conversation or use new session ids.
+- The broker is aimed at **local or trusted network** use. Exposing it on the internet without authentication would let anyone send messages through your Copilot bot configuration.
+- **HTTPS** and **auth** are not built in; put the broker behind a reverse proxy or API gateway if you need that in production.
+
+---
+
+## Troubleshooting
+
+| Symptom | Things to check |
+|--------|-------------------|
+| `configured: false` in `/api/health` | Set `COPILOT_DIRECTLINE_TOKEN_URL` in `broker/.env` and restart. |
+| `503` on chat routes | Same as above. |
+| `404` on `/api/chat` for `sessionId` | Session expired after restart; omit `sessionId` or clear the UI / use a new `user` in OpenAI calls. |
+| No bot text, `timedOut: true` | Increase `POLL_TIMEOUT_MS` or check bot latency; confirm the bot responds in Postman for the same bot. |
+| Port already in use | Change `PORT` in `.env` or run `npm run broker:stop`, then start again. |
+| OpenAI client cannot connect | Base URL should include **`/v1`** if the SDK expects the OpenAI path prefix (e.g. `http://localhost:8080/v1`). |
+
+---
+
+## License
+
+Use and modification are at your discretion unless the repository owner adds a formal license file.
