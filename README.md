@@ -72,52 +72,110 @@ The broker loads `.env` from the **`broker/`** directory (via `dotenv` when you 
 
 ## Docker (recommended for other machines)
 
-You need **[Docker](https://docs.docker.com/get-docker/)** and **[Compose v2](https://docs.docker.com/compose/)** on the host. The image runs **Node 20** and listens on port **8080 inside the container** (Compose maps that to the host).
+The container image uses **Node 20** and listens on **8080 inside the container**. [Docker Compose](https://docs.docker.com/compose/) maps that to a port on your computer (by default **8080** on the host). Official overview: [Get Docker](https://docs.docker.com/get-docker/).
 
-### 1. Create `broker/.env` on the host
+### Install Docker
 
-From the **repository root**:
+Pick the guide that matches your OS, install the current **Docker Desktop** or **Docker Engine**, then **start the Docker daemon** (on Windows and macOS this means launching **Docker Desktop** and waiting until it reports “running”).
+
+| OS | What to install | Official install guide |
+|----|-----------------|------------------------|
+| **Windows 10/11** | **Docker Desktop** (WSL 2 backend recommended) | [Install Docker Desktop on Windows](https://docs.docker.com/desktop/install/windows-install/) |
+| **macOS** (Intel or Apple silicon) | **Docker Desktop** | [Install Docker Desktop on Mac](https://docs.docker.com/desktop/install/mac-install/) |
+| **Linux** (Ubuntu, Debian, Fedora, etc.) | **Docker Engine** + **Docker Compose plugin** | [Install Docker Engine](https://docs.docker.com/engine/install/) — follow the post-install steps for your distro so your user can run `docker` without `sudo` if you prefer ([Linux](https://docs.docker.com/engine/install/linux-postinstall/)) |
+
+On **Linux**, install the **`docker-compose-plugin`** package (or equivalent) so the command **`docker compose`** (with a space) is available; older standalone **`docker-compose`** binaries are not required for this project.
+
+### Verify Docker is working
+
+In a new terminal:
+
+```bash
+docker version
+docker compose version
+```
+
+You should see a **Client** and **Server** section from `docker version` (server missing usually means the daemon is not running). `docker compose version` should report **Compose v2** (e.g. `v2.x.x`). If `docker compose` is not found, finish the Compose plugin install for your platform.
+
+### Get the repository
+
+Clone and enter the project (adjust the URL if you use a fork):
+
+```bash
+git clone https://github.com/twgcriot/RT_Azure_Co-PilotStudio.git
+cd RT_Azure_Co-PilotStudio
+```
+
+### Configure environment variables
+
+From the **repository root**, create `broker/.env` from the template and edit it:
 
 ```bash
 cp broker/.env.example broker/.env
 ```
 
-Edit `broker/.env` and set at least **`COPILOT_DIRECTLINE_TOKEN_URL`**. For Compose, **`PORT`** inside the container is fixed to **8080** by [`docker-compose.yml`](docker-compose.yml); to expose a different **host** port, set **`HOST_PORT`** (defaults to `8080`).
+Set at least **`COPILOT_DIRECTLINE_TOKEN_URL`** (see the [Environment variables](#3-environment-variables) table). Other variables in `broker/.env` are passed into the container.
 
-### 2. Build and run with Compose
+**Compose and `PORT`:** [`docker-compose.yml`](docker-compose.yml) sets **`PORT=8080`** inside the container so the app matches the published port. To use a different **host** port (e.g. **9090** on your machine while the container still uses 8080 internally), set **`HOST_PORT`** when starting Compose:
 
-From the **repository root**:
+```bash
+HOST_PORT=9090 docker compose up --build
+```
+
+Default host port is **8080** if `HOST_PORT` is omitted.
+
+### Run with Docker Compose
+
+From the **repository root** (same folder as `docker-compose.yml`):
+
+**Foreground** (logs in the terminal; stop with **Ctrl+C**):
 
 ```bash
 docker compose up --build
 ```
 
-Run detached:
+**Detached** (runs in the background):
 
 ```bash
 docker compose up --build -d
 ```
 
-Stop:
+View logs when detached:
+
+```bash
+docker compose logs -f broker
+```
+
+**Stop** the stack:
 
 ```bash
 docker compose down
 ```
 
-Open **http://localhost:8080/** (or `http://localhost:<HOST_PORT>/` if you set `HOST_PORT`).
+**Open the app:** [http://localhost:8080/](http://localhost:8080/) — or `http://localhost:<HOST_PORT>/` if you set **`HOST_PORT`**.
 
-### 3. Build and run with Docker only
+**Health check** (optional):
 
-From the **repository root**:
+```bash
+curl -s http://localhost:8080/api/health
+```
+
+Use the same host port you mapped (e.g. replace `8080` with `9090` if `HOST_PORT=9090`).
+
+### Run with Docker only (no Compose)
+
+From the **repository root** (the folder that contains `broker/` and `docker-compose.yml`):
 
 ```bash
 docker build -t copilot-studio-broker ./broker
-docker run --rm --env-file broker/.env -e PORT=8080 -p 8080:8080 copilot-studio-broker
+docker run --rm --env-file broker/.env -e PORT=8080 -p 8080:8080 --name copilot-studio-broker copilot-studio-broker
 ```
 
-Adjust **`-p <host>:8080`** if you want another host port. Do **not** commit real secrets; `--env-file` reads your local `broker/.env`.
+- **`-p <host-port>:8080`** maps a host port to the container’s **8080** (example: `-p 9090:8080` → UI at [http://localhost:9090/](http://localhost:9090/)).
+- **`--env-file broker/.env`** loads your local secrets; do not commit that file.
+- Stop interactive runs with **Ctrl+C**; remove **`--rm`** if you want to inspect a stopped container.
 
-### 4. Publishing the image (optional)
+### Publishing the image (optional)
 
 Tag and push to your registry (example: GitHub Container Registry):
 
