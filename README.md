@@ -28,7 +28,7 @@ The HTTP sequence matches the included **Postman collection** (`Co-Pilot Studio 
 | `broker/public/` | Test chat UI (`index.html`, `app.js`, `styles.css`) |
 | `broker/lib/` | Direct Line logic, sessions, OpenAI-compatible routes |
 | `broker/scripts/` | Optional background `broker:start` / `broker:stop` helpers |
-| [`broker/Dockerfile`](broker/Dockerfile) | Production container image (Node 20) |
+| [`broker/Dockerfile`](broker/Dockerfile) | OCI image definition (Node 20); build = packaged broker |
 | [`docker-compose.yml`](docker-compose.yml) | Compose stack from repo root |
 | `Co-Pilot Studio Flow.postman_collection.json` | Reference collection for the same flow in Postman |
 
@@ -161,6 +161,40 @@ curl -s http://localhost:8080/api/health
 ```
 
 Use the same host port you mapped (e.g. replace `8080` with `9090` if `HOST_PORT=9090`).
+
+### Build the Docker image (package the broker)
+
+The runnable **artifact** is a container image produced from [`broker/Dockerfile`](broker/Dockerfile). Nothing else is required on the target machine except Docker (or another OCI runtime) and your **`broker/.env`** at run time.
+
+**From the repository root** (recommended tag includes a version you choose):
+
+```bash
+docker build -t copilot-studio-broker:1.0.0 -t copilot-studio-broker:latest ./broker
+```
+
+**From the `broker/` directory** (same image):
+
+```bash
+cd broker
+npm run docker:build
+```
+
+That script tags **`copilot-studio-broker:latest`** only. List local images: `docker images copilot-studio-broker`.
+
+**Export a tarball** (USB / air-gapped / attach to a ticket):
+
+```bash
+docker save -o copilot-studio-broker-1.0.0.tar copilot-studio-broker:1.0.0
+```
+
+**Import elsewhere:**
+
+```bash
+docker load -i copilot-studio-broker-1.0.0.tar
+docker run --rm --env-file /path/to/.env -e PORT=8080 -p 8080:8080 copilot-studio-broker:1.0.0
+```
+
+Secrets stay in **`--env-file`** / environment; they are **not** stored inside the image layers.
 
 ### Run with Docker only (no Compose)
 

@@ -7,7 +7,8 @@
     "start": "node server.js",
     "dev": "node --watch server.js",
     "broker:start": "bash scripts/start-broker.sh",
-    "broker:stop": "bash scripts/stop-broker.sh"
+    "broker:stop": "bash scripts/stop-broker.sh",
+    "docker:build": "docker build -t copilot-studio-broker:latest ."
   },
   "engines": {
     "node": ">=18"
