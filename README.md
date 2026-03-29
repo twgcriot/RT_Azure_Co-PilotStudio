@@ -495,6 +495,12 @@ Import **`Co-Pilot Studio Flow.postman_collection.json`** into Postman to exerci
 
 ---
 
+## Acknowledgements
+
+Thanks to **Christopher Martin** for inspiration.
+
+---
+
 ## License
 
 Use and modification are at your discretion unless the repository owner adds a formal license file.
