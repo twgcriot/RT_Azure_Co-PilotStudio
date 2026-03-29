@@ -1,6 +1,9 @@
 .DS_Store
 *.log
 
+# Local Docker image exports (docker save); do not commit—use a registry or artifact store
+copilot-studio-broker*.tar
+
 # Broker
 broker/node_modules/
 broker/.env
