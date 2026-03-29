@@ -30,6 +30,7 @@ The HTTP sequence matches the included **Postman collection** (`Co-Pilot Studio 
 | `broker/scripts/` | Optional background `broker:start` / `broker:stop` helpers |
 | [`broker/Dockerfile`](broker/Dockerfile) | OCI image definition (Node 20); build = packaged broker |
 | [`docker-compose.yml`](docker-compose.yml) | Compose stack from repo root |
+| **Pre-built Docker image** | [`oogwaysan/copilot-studio-broker:latest`](https://hub.docker.com/r/oogwaysan/copilot-studio-broker) on Docker Hub |
 | `Co-Pilot Studio Flow.postman_collection.json` | Reference collection for the same flow in Postman |
 
 Secrets and local artifacts are **not** committed (see `.gitignore`): `broker/.env`, `node_modules`, `.broker.pid`, `.broker.log`.
@@ -97,9 +98,42 @@ docker compose version
 
 You should see a **Client** and **Server** section from `docker version` (server missing usually means the daemon is not running). `docker compose version` should report **Compose v2** (e.g. `v2.x.x`). If `docker compose` is not found, finish the Compose plugin install for your platform.
 
+### Pre-built image on Docker Hub
+
+You can run the broker **without building** from this repository by pulling the published image:
+
+| | |
+|--|--|
+| **Image** | `oogwaysan/copilot-studio-broker:latest` |
+| **Registry** | [Docker Hub — `oogwaysan/copilot-studio-broker`](https://hub.docker.com/r/oogwaysan/copilot-studio-broker) |
+
+1. **Pull the image**
+
+   ```bash
+   docker pull oogwaysan/copilot-studio-broker:latest
+   ```
+
+2. **Create an environment file on your computer** (not inside the image). You still must set **`COPILOT_DIRECTLINE_TOKEN_URL`** and any other options you need. If you cloned this repo, use `broker/.env` from the template; otherwise create a file (e.g. `.env`) with the same keys as [`broker/.env.example`](broker/.env.example).
+
+3. **Run the container** (the app listens on **8080** inside the container; adjust host mapping if you like):
+
+   ```bash
+   docker run --rm \
+     --env-file ./.env \
+     -e PORT=8080 \
+     -p 8080:8080 \
+     oogwaysan/copilot-studio-broker:latest
+   ```
+
+   Then open **http://localhost:8080/** (example: use `-p 9090:8080` to use port **9090** on the host).
+
+4. **Optional** — pin a specific tag or digest in production instead of `:latest`.
+
+Secrets stay in **`--env-file`** on the host; they are not baked into the image on Docker Hub.
+
 ### Get the repository
 
-Clone and enter the project (adjust the URL if you use a fork):
+Clone and enter the project when you want to **build the image from source** or use the repo’s [`docker-compose.yml`](docker-compose.yml) with `build:` (adjust the URL if you use a fork):
 
 ```bash
 git clone https://github.com/twgcriot/RT_Azure_Co-PilotStudio.git
