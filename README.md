@@ -30,7 +30,7 @@ The HTTP sequence matches the included **Postman collection** (`Co-Pilot Studio 
 | `broker/scripts/` | Optional background `broker:start` / `broker:stop` helpers |
 | [`broker/Dockerfile`](broker/Dockerfile) | OCI image definition (Node 20); build = packaged broker |
 | [`docker-compose.yml`](docker-compose.yml) | Compose stack from repo root |
-| **Pre-built Docker image** | [`twgcriot/copilot-studio-broker:latest`](https://hub.docker.com/r/twgcriot/copilot-studio-broker) on Docker Hub |
+| **Pre-built Docker image** | [`oogwaysan/airs:latest`](https://hub.docker.com/r/oogwaysan/airs) on Docker Hub |
 | `Co-Pilot Studio Flow.postman_collection.json` | Reference collection for the same flow in Postman |
 
 Secrets and local artifacts are **not** committed (see `.gitignore`): `broker/.env`, `node_modules`, `.broker.pid`, `.broker.log`.
@@ -102,14 +102,14 @@ You should see a **Client** and **Server** section from `docker version` (server
 
 | | |
 |--|--|
-| **Image** | `twgcriot/copilot-studio-broker:latest` |
-| **Registry** | [Docker Hub — `twgcriot/copilot-studio-broker`](https://hub.docker.com/r/twgcriot/copilot-studio-broker) |
+| **Image** | `oogwaysan/airs:latest` |
+| **Registry** | [Docker Hub — `oogwaysan/airs`](https://hub.docker.com/r/oogwaysan/airs) |
 
 ```bash
-docker pull twgcriot/copilot-studio-broker:latest
+docker pull oogwaysan/airs:latest
 ```
 
-For your own Docker Hub repository, use **`YOUR_DOCKERHUB_USERNAME/copilot-studio-broker:latest`**.
+For your own Docker Hub repository, use **`YOUR_DOCKERHUB_USERNAME/<repository>:latest`** (this project’s published name is **`airs`** under user **`oogwaysan`**).
 
 ---
 
@@ -133,7 +133,7 @@ docker run --rm \
   copilot-studio-broker:latest
 ```
 
-You can run the same command with **`twgcriot/copilot-studio-broker:latest`** (or **`YOUR_DOCKERHUB_USERNAME/copilot-studio-broker:latest`**) as the image on the last line—no local build required.
+You can run the same command with **`oogwaysan/airs:latest`** (or your own **`YOUR_DOCKERHUB_USERNAME/<repo>:latest`**) as the image on the last line—no local build required.
 
 #### 2. Local build + env file
 
@@ -151,15 +151,15 @@ docker run --rm \
 #### 3. Pull from Docker Hub + env file
 
 ```bash
-docker pull twgcriot/copilot-studio-broker:latest
+docker pull oogwaysan/airs:latest
 docker run --rm \
   --env-file broker/.env \
   -e PORT=8080 \
   -p 8080:8080 \
-  twgcriot/copilot-studio-broker:latest
+  oogwaysan/airs:latest
 ```
 
-Use **`YOUR_DOCKERHUB_USERNAME/copilot-studio-broker:latest`** if you push your own image. If **`.env` is not at `broker/.env`**, use **`--env-file /absolute/path/to/.env`**.
+Use your own image name if you push to a different repository. If **`.env` is not at `broker/.env`**, use **`--env-file /absolute/path/to/.env`**.
 
 Configuration is applied only at **run** time; it is **not** baked into the image.
 
@@ -298,16 +298,16 @@ docker pull <dockerhub-username>/copilot-studio-broker:latest
 docker run --rm --env-file /path/to/.env -e PORT=8080 -p 8080:8080 <dockerhub-username>/copilot-studio-broker:latest
 ```
 
-**Publish `twgcriot/copilot-studio-broker` (maintainers):** On [Docker Hub](https://hub.docker.com/), ensure the **`twgcriot/copilot-studio-broker`** repository exists (create it under org **twgcriot** if needed). Log in with an account that has **push** rights to that namespace:
+**Publish `oogwaysan/airs` (maintainers):** On [Docker Hub](https://hub.docker.com/), ensure the **`oogwaysan/airs`** repository exists under user **`oogwaysan`**. Log in with an account that has **push** rights (`docker login` — use an [access token](https://hub.docker.com/settings/security) if 2FA is enabled):
 
 ```bash
 docker login
-docker build -t twgcriot/copilot-studio-broker:latest -t twgcriot/copilot-studio-broker:1.0.0 ./broker
-docker push twgcriot/copilot-studio-broker:latest
-docker push twgcriot/copilot-studio-broker:1.0.0
+docker build -t oogwaysan/airs:latest -t oogwaysan/airs:1.0.0 ./broker
+docker push oogwaysan/airs:latest
+docker push oogwaysan/airs:1.0.0
 ```
 
-If **`push access denied`** or **`insufficient_scope`**: run **`docker logout`** then **`docker login`** again (use a [Docker access token](https://hub.docker.com/settings/security) if 2FA is on), and confirm your user is in the **twgcriot** organization with **write** permissions—or push under your **personal** Docker Hub username instead.
+If **`push access denied`** or **`insufficient_scope`**: run **`docker logout`** then **`docker login`** as **`oogwaysan`** (or a collaborator with write access to **`oogwaysan/airs`**).
 
 #### GitHub Container Registry (GHCR)
 
