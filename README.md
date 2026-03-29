@@ -211,14 +211,46 @@ docker run --rm --env-file broker/.env -e PORT=8080 -p 8080:8080 --name copilot-
 
 ### Publishing the image (optional)
 
-Tag and push to your registry (example: GitHub Container Registry):
+Images must be tagged with **`registry/namespace/image:tag`**. Your **local** build is usually named `copilot-studio-broker:latest`; retag before push.
+
+#### Docker Hub
+
+1. Create a free account at [hub.docker.com](https://hub.docker.com/) and create a **repository** (e.g. `copilot-studio-broker`) under your **username** or **organization** (names must be lowercase; use hyphens if needed).
+2. Log in from the machine that has the image:
+   ```bash
+   docker login
+   ```
+   Enter your **Docker Hub username** and password (for 2FA accounts, use an **access token** as the password: [Docker Hub → Account Settings → Security → New Access Token](https://hub.docker.com/settings/security)).
+3. Tag the image so the first path segment is your **Docker Hub username or org**:
+   ```bash
+   docker tag copilot-studio-broker:latest <dockerhub-username>/copilot-studio-broker:1.0.0
+   docker tag copilot-studio-broker:latest <dockerhub-username>/copilot-studio-broker:latest
+   ```
+4. Push:
+   ```bash
+   docker push <dockerhub-username>/copilot-studio-broker:1.0.0
+   docker push <dockerhub-username>/copilot-studio-broker:latest
+   ```
+
+**Pull and run elsewhere:**
+
+```bash
+docker pull <dockerhub-username>/copilot-studio-broker:latest
+docker run --rm --env-file /path/to/.env -e PORT=8080 -p 8080:8080 <dockerhub-username>/copilot-studio-broker:latest
+```
+
+#### GitHub Container Registry (GHCR)
 
 ```bash
 docker tag copilot-studio-broker ghcr.io/<org-or-user>/copilot-studio-broker:1.0.0
 docker push ghcr.io/<org-or-user>/copilot-studio-broker:1.0.0
 ```
 
-On another machine, **`docker run`** or Compose **`image:`** instead of **`build:`**, and supply **`--env-file`** or your platform’s secret mechanism for **`COPILOT_DIRECTLINE_TOKEN_URL`**.
+(Authenticate with `docker login ghcr.io` using a GitHub PAT with `write:packages`.)
+
+#### General note
+
+On another machine, use **`docker run`** or Compose with **`image: ...`** instead of **`build:`**, and still pass **`COPILOT_DIRECTLINE_TOKEN_URL`** at run time via **`--env-file`** or your platform’s secret mechanism—not inside the image.
 
 ---
 
