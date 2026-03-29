@@ -30,7 +30,7 @@ The HTTP sequence matches the included **Postman collection** (`Co-Pilot Studio 
 | `broker/scripts/` | Optional background `broker:start` / `broker:stop` helpers |
 | [`broker/Dockerfile`](broker/Dockerfile) | OCI image definition (Node 20); build = packaged broker |
 | [`docker-compose.yml`](docker-compose.yml) | Compose stack from repo root |
-| **Pre-built Docker image** | [`oogwaysan/airs:latest`](https://hub.docker.com/r/oogwaysan/airs) on Docker Hub |
+| **Pre-built Docker image** | [`oogwaysan/airs:latest`](https://hub.docker.com/r/oogwaysan/airs) on Docker Hub — **multi-arch** manifest (**linux/amd64**, **linux/arm64**, **linux/arm/v7**) |
 | `Co-Pilot Studio Flow.postman_collection.json` | Reference collection for the same flow in Postman |
 
 Secrets and local artifacts are **not** committed (see `.gitignore`): `broker/.env`, `node_modules`, `.broker.pid`, `.broker.log`.
@@ -102,12 +102,15 @@ You should see a **Client** and **Server** section from `docker version` (server
 
 | | |
 |--|--|
-| **Image** | `oogwaysan/airs:latest` |
+| **Image** | `oogwaysan/airs:latest` (and version tags such as **`1.0.0`**) |
+| **Architectures** | **linux/amd64**, **linux/arm64**, **linux/arm/v7** (Docker selects the right layer for your host on **`pull` / `run`**) |
 | **Registry** | [Docker Hub — `oogwaysan/airs`](https://hub.docker.com/r/oogwaysan/airs) |
 
 ```bash
 docker pull oogwaysan/airs:latest
 ```
+
+`docker pull` and `docker run` use the **multi-architecture manifest** automatically; you do not tag per-CPU manually.
 
 For your own Docker Hub repository, use **`YOUR_DOCKERHUB_USERNAME/<repository>:latest`** (this project’s published name is **`airs`** under user **`oogwaysan`**).
 
@@ -298,14 +301,24 @@ docker pull <dockerhub-username>/copilot-studio-broker:latest
 docker run --rm --env-file /path/to/.env -e PORT=8080 -p 8080:8080 <dockerhub-username>/copilot-studio-broker:latest
 ```
 
-**Publish `oogwaysan/airs` (maintainers):** On [Docker Hub](https://hub.docker.com/), ensure the **`oogwaysan/airs`** repository exists under user **`oogwaysan`**. Log in with an account that has **push** rights (`docker login` — use an [access token](https://hub.docker.com/settings/security) if 2FA is enabled):
+**Publish `oogwaysan/airs` (maintainers, multi-platform):** On [Docker Hub](https://hub.docker.com/), ensure the **`oogwaysan/airs`** repository exists under user **`oogwaysan`**. Log in with an account that has **push** rights (`docker login` — use an [access token](https://hub.docker.com/settings/security) if 2FA is enabled).
+
+From the **repository root**, build and push a **single manifest** that lists **linux/amd64**, **linux/arm64**, and **linux/arm/v7** (requires [Buildx](https://docs.docker.com/build/buildx/) and a builder with QEMU for non-native arches — **Docker Desktop** provides this out of the box):
 
 ```bash
 docker login
-docker build -t oogwaysan/airs:latest -t oogwaysan/airs:1.0.0 ./broker
-docker push oogwaysan/airs:latest
-docker push oogwaysan/airs:1.0.0
+docker buildx inspect --bootstrap
+docker buildx build \
+  --platform linux/amd64,linux/arm64,linux/arm/v7 \
+  -t oogwaysan/airs:latest \
+  -t oogwaysan/airs:1.0.0 \
+  --push \
+  ./broker
 ```
+
+That produces one **`latest`** (and **`1.0.0`**) tag on Docker Hub; clients on each architecture pull the matching image automatically. To **load only your native arch** into the local daemon (no push), use a single platform and **`--load`** instead of **`--push`**.
+
+For a **single-architecture** image (legacy flow), you can still run **`docker build -t oogwaysan/airs:latest ./broker`** and **`docker push`** that tag — but that tag will not include other CPUs until you replace it with a buildx multi-arch push.
 
 If **`push access denied`** or **`insufficient_scope`**: run **`docker logout`** then **`docker login`** as **`oogwaysan`** (or a collaborator with write access to **`oogwaysan/airs`**).
 
