@@ -100,36 +100,68 @@ You should see a **Client** and **Server** section from `docker version` (server
 
 ### Pre-built image on Docker Hub
 
-You can run the broker **without building** from this repository by pulling the published image:
-
 | | |
 |--|--|
 | **Image** | `oogwaysan/copilot-studio-broker:latest` |
 | **Registry** | [Docker Hub — `oogwaysan/copilot-studio-broker`](https://hub.docker.com/r/oogwaysan/copilot-studio-broker) |
 
-1. **Pull the image**
+```bash
+docker pull oogwaysan/copilot-studio-broker:latest
+```
 
-   ```bash
-   docker pull oogwaysan/copilot-studio-broker:latest
-   ```
+For your own Docker Hub repository, use **`YOUR_DOCKERHUB_USERNAME/copilot-studio-broker:latest`**.
 
-2. **Create an environment file on your computer** (not inside the image). You still must set **`COPILOT_DIRECTLINE_TOKEN_URL`** and any other options you need. If you cloned this repo, use `broker/.env` from the template; otherwise create a file (e.g. `.env`) with the same keys as [`broker/.env.example`](broker/.env.example).
+---
 
-3. **Run the container** (the app listens on **8080** inside the container; adjust host mapping if you like):
+### Run the container (`docker run`, default port **8080**)
 
-   ```bash
-   docker run --rm \
-     --env-file ./.env \
-     -e PORT=8080 \
-     -p 8080:8080 \
-     oogwaysan/copilot-studio-broker:latest
-   ```
+These examples use **`--rm`**, **`PORT=8080`** inside the container, and **`-p 8080:8080`** on the host. Open **http://localhost:8080/** when mapping **`8080:8080`**. Change the **first** number in **`-p`** for a different host port (e.g. **`-p 9090:8080`**).
 
-   Then open **http://localhost:8080/** (example: use `-p 9090:8080` to use port **9090** on the host).
+When using **`--env-file`**, your file must include **`COPILOT_DIRECTLINE_TOKEN_URL`** (see [Configure environment variables](#configure-environment-variables)). Paths are relative to your shell’s **current directory**.
 
-4. **Optional** — pin a specific tag or digest in production instead of `:latest`.
+#### 1. Inline environment (quick test)
 
-Secrets stay in **`--env-file`** on the host; they are not baked into the image on Docker Hub.
+The token may appear in **shell history**—prefer **`--env-file`** for daily use.
+
+**Local image** `copilot-studio-broker:latest` (after `docker build`):
+
+```bash
+docker run --rm \
+  -e COPILOT_DIRECTLINE_TOKEN_URL="https://...your-token-url..." \
+  -e PORT=8080 \
+  -p 8080:8080 \
+  copilot-studio-broker:latest
+```
+
+You can run the same command with **`oogwaysan/copilot-studio-broker:latest`** (or **`YOUR_DOCKERHUB_USERNAME/copilot-studio-broker:latest`**) as the image on the last line—no local build required.
+
+#### 2. Local build + env file
+
+From the **repository root**:
+
+```bash
+docker build -t copilot-studio-broker:latest ./broker
+docker run --rm \
+  --env-file broker/.env \
+  -e PORT=8080 \
+  -p 8080:8080 \
+  copilot-studio-broker:latest
+```
+
+#### 3. Pull from Docker Hub + env file
+
+```bash
+docker pull oogwaysan/copilot-studio-broker:latest
+docker run --rm \
+  --env-file broker/.env \
+  -e PORT=8080 \
+  -p 8080:8080 \
+  oogwaysan/copilot-studio-broker:latest
+```
+
+Use **`YOUR_DOCKERHUB_USERNAME/copilot-studio-broker:latest`** if you push your own image. If **`.env` is not at `broker/.env`**, use **`--env-file /absolute/path/to/.env`**.
+
+Configuration is applied only at **run** time; it is **not** baked into the image.
 
 ### Get the repository
 
@@ -232,16 +264,9 @@ Secrets stay in **`--env-file`** / environment; they are **not** stored inside t
 
 ### Run with Docker only (no Compose)
 
-From the **repository root** (the folder that contains `broker/` and `docker-compose.yml`):
+Use **Run the container (`docker run`, default port 8080)** (section above) for the standard **`docker build` / `docker pull` + `docker run`** patterns.
 
-```bash
-docker build -t copilot-studio-broker ./broker
-docker run --rm --env-file broker/.env -e PORT=8080 -p 8080:8080 --name copilot-studio-broker copilot-studio-broker
-```
-
-- **`-p <host-port>:8080`** maps a host port to the container’s **8080** (example: `-p 9090:8080` → UI at [http://localhost:9090/](http://localhost:9090/)).
-- **`--env-file broker/.env`** loads your local secrets; do not commit that file.
-- Stop interactive runs with **Ctrl+C**; remove **`--rm`** if you want to inspect a stopped container.
+Optional: add **`--name copilot-studio-broker`** to **`docker run`** to name the container. Remove **`--rm`** if you need to inspect a stopped container. Stop a foreground run with **Ctrl+C**.
 
 ### Publishing the image (optional)
 
