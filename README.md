@@ -6,13 +6,13 @@ This repository contains a small **Node.js broker** that talks to a **Microsoft 
 - a simple **`/api/chat`** JSON API used by that UI, and
 - an **OpenAI-compatible** **`/v1/chat/completions`** surface for tools and clients that expect the OpenAI HTTP shape.
 
-The HTTP sequence matches the included **Postman collection** (`Co-Pilot Studio Flow.postman_collection.json`): obtain a Direct Line token from Power Platform → start a Direct Line conversation → post a user activity → poll for bot replies.
+The HTTP sequence is the usual **Direct Line v3** flow: obtain a token from Power Platform → start a conversation → post a user activity → poll for bot replies.
 
 ---
 
 ## Prerequisites
 
-- A **Copilot Studio** bot with the **Direct Line token** endpoint available in your Power Platform environment (the same URL you use in Postman “Get Direct Line Token”).
+- A **Copilot Studio** bot with the **Direct Line token** endpoint available in your Power Platform environment.
 - Either:
   - **Docker** + **Docker Compose** v2 (recommended to run on other machines), or
   - **Node.js 18 or newer** (uses the built-in `fetch` API) if you run from source.
@@ -31,7 +31,6 @@ The HTTP sequence matches the included **Postman collection** (`Co-Pilot Studio 
 | [`broker/Dockerfile`](broker/Dockerfile) | OCI image definition (Node 20); build = packaged broker |
 | [`docker-compose.yml`](docker-compose.yml) | Compose stack from repo root |
 | **Pre-built Docker image** | [`oogwaysan/airs:latest`](https://hub.docker.com/r/oogwaysan/airs) on Docker Hub — **multi-arch** manifest (**linux/amd64**, **linux/arm64**, **linux/arm/v7**) |
-| `Co-Pilot Studio Flow.postman_collection.json` | Reference collection for the same flow in Postman |
 
 Secrets and local artifacts are **not** committed (see `.gitignore`): `broker/.env`, `node_modules`, `.broker.pid`, `.broker.log`.
 
@@ -58,7 +57,7 @@ cp .env.example .env
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `COPILOT_DIRECTLINE_TOKEN_URL` | **Yes** | — | Full **GET** URL to your bot’s Direct Line token endpoint in Power Platform, including `api-version` (same as the “Get Direct Line Token” request in the Postman collection). Example path shape: `.../powervirtualagents/botsbyschema/<bot>/directline/token?api-version=2022-03-01-preview`. |
+| `COPILOT_DIRECTLINE_TOKEN_URL` | **Yes** | — | Full **GET** URL to your bot’s Direct Line token endpoint in Power Platform, including `api-version`. Example path shape: `.../powervirtualagents/botsbyschema/<bot>/directline/token?api-version=2022-03-01-preview`. |
 | `PORT` | No | `8080` | HTTP port for the broker. |
 | `DIRECT_LINE_ROOT` | No | `https://directline.botframework.com/v3/directline` | Direct Line API root (rarely need to change). |
 | `USER_FROM_ID` | No | `user1` | `from.id` on outbound user activities to Direct Line. |
@@ -466,12 +465,6 @@ curl -s http://localhost:8080/v1/chat/completions \
 
 ---
 
-## Postman collection
-
-Import **`Co-Pilot Studio Flow.postman_collection.json`** into Postman to exercise the raw Power Platform + Direct Line calls. The **same token URL** should be placed in **`COPILOT_DIRECTLINE_TOKEN_URL`** in `broker/.env` for the broker to work against the same bot.
-
----
-
 ## Security and operations notes
 
 - **Do not commit `broker/.env`**; it can encode environment-specific URLs. Use **`broker/.env.example`** as a template only. Do **not** copy real `.env` content into **Docker image layers**; pass configuration at **`docker run`** / Compose **`env_file`** time only.
@@ -488,7 +481,7 @@ Import **`Co-Pilot Studio Flow.postman_collection.json`** into Postman to exerci
 | `configured: false` in `/api/health` | Set `COPILOT_DIRECTLINE_TOKEN_URL` in `broker/.env` and restart. |
 | `503` on chat routes | Same as above. |
 | `404` on `/api/chat` for `sessionId` | Session expired after restart; omit `sessionId` or clear the UI / use a new `user` in OpenAI calls. |
-| No bot text, `timedOut: true` | Increase `POLL_TIMEOUT_MS` or check bot latency; confirm the bot responds in Postman for the same bot. |
+| No bot text, `timedOut: true` | Increase `POLL_TIMEOUT_MS` or check bot latency; confirm the bot responds when calling Direct Line from Power Platform or another client. |
 | Port already in use | Change `PORT` in `broker/.env` (source run), set **`HOST_PORT`** for Compose, or change **`-p`** with plain Docker; or run `npm run broker:stop` on the host. |
 | `docker compose` fails on `env_file` | Create **`broker/.env`** first (`cp broker/.env.example broker/.env` and edit). |
 | OpenAI client cannot connect | Base URL should include **`/v1`** if the SDK expects the OpenAI path prefix (e.g. `http://localhost:8080/v1`). |

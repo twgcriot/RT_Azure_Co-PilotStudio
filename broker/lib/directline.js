@@ -1,5 +1,5 @@
 /**
- * Copilot Studio / Direct Line v3 client (mirrors Postman "Co-Pilot Studio Flow" sequence).
+ * Copilot Studio / Direct Line v3 client (token → conversation → activity → poll).
  */
 
 function sleep(ms) {
